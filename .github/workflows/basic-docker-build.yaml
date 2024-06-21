@@ -1,6 +1,5 @@
 ---
-name: 02 Build with BuildKit Cache
-# simplest workflow possible
+name: 04 Build with Metadata
 
 on:
   push:
@@ -14,6 +13,23 @@ jobs:
     runs-on: ubuntu-latest
     steps:
 
+      - name: Docker meta
+        id: docker_meta
+        uses: docker/metadata-action@v5
+        with:
+          images: jimdavis66/httpenv2
+          flavor: |
+            latest=false
+          tags: |
+            type=raw,value=04
+            type=raw,value=latest,enable=${{ endsWith(github.ref, github.event.repository.default_branch) }}
+            type=ref,event=pr
+            type=ref,event=branch
+            type=semver,pattern={{version}}
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v1
             
@@ -26,7 +42,16 @@ jobs:
       - name: Docker build
         uses: docker/build-push-action@v6
         with:
-          push: ${{ github.event_name != 'pull_request' }}
-          tags: jimdavis66/httpenv2:latest,jimdavis66/httpenv2:1.0
+          # Image metadata
+          push: true
+          tags: ${{ steps.docker_meta.outputs.tags }}
+          labels: ${{ steps.docker_meta.outputs.labels }}
+          # BuildKit Cache
           cache-from: type=gha
           cache-to: type=gha,mode=max
+          # Multi-platform with QEMU
+          # comma seperated list of what OS and architechtures to build for (in parallel)
+          # default is linux/amd64 (the OS of the runner) but you can add more
+          # adding linux/arm64 is recommended for Apple Silicon, Raspberry Pi, AWS Graviton, etc.
+          # linux/arm/v7 is for 32-bit ARM devices like Raspberry Pi 2/3
+          platforms: linux/amd64,linux/arm64,linux/arm/v7
