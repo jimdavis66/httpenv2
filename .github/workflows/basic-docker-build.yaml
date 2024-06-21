@@ -1,5 +1,5 @@
 ---
-name: 05 Build and Comment
+name: 06 Build and Scan
 
 on:
   push:
@@ -9,25 +9,11 @@ on:
 
 jobs:
   build-image:
-    name: Build Image
+    name: Build Images
     runs-on: ubuntu-latest
     permissions:
       pull-requests: write # needed to create and update comments in PRs
     steps:
-
-      - name: Docker meta
-        id: docker_meta
-        uses: docker/metadata-action@v5
-        with:
-          images: jimdavis66/httpenv2
-          flavor: |
-            latest=false
-          tags: |
-            type=raw,value=04
-            type=raw,value=latest,enable=${{ endsWith(github.ref, github.event.repository.default_branch) }}
-            type=ref,event=pr
-            type=ref,event=branch
-            type=semver,pattern={{version}}
 
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
@@ -41,49 +27,49 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
       
-      - name: Docker build
+      - name: Build and export to Docker
         uses: docker/build-push-action@v6
         with:
-          # Image metadata
+          push: false
+          load: true # Export to Docker Engine rather than pushing to a registry
+          tags: ${{ github.run_id }}
+          target: test
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          platforms: linux/amd64
+
+      - name: Run Trivy for all CVEs (non-blocking)
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: ${{ github.run_id }}
+          exit-code: 0
+          format: table 
+
+      - name: Docker Metadata for Final Image Build
+        id: docker_meta
+        uses: docker/metadata-action@v5
+        with:
+          images: jimdavis66/httpenv2
+          flavor: |
+            latest=false
+          tags: |
+            type=raw,value=06
+          # comment these out on all but 04-add-metadata.yaml to avoid overwriting image tags
+          # type=raw,value=latest,enable=${{ endsWith(github.ref, github.event.repository.default_branch) }}
+          # type=ref,event=pr
+          # type=ref,event=branch
+          # type=semver,pattern={{version}}
+      
+      - name: Docker Build and Push to Docker Hub
+        uses: docker/build-push-action@v6
+        with:
           push: true
           tags: ${{ steps.docker_meta.outputs.tags }}
           labels: ${{ steps.docker_meta.outputs.labels }}
-          # BuildKit Cache
           cache-from: type=gha
           cache-to: type=gha,mode=max
-          # Multi-platform with QEMU
           # comma seperated list of what OS and architechtures to build for (in parallel)
           # default is linux/amd64 (the OS of the runner) but you can add more
-
-        # If PR, put image tags in the PR comments
-        # from https://github.com/marketplace/actions/create-or-update-comment
-      - name: Find comment for image tags
-        uses: peter-evans/find-comment@v3
-        if: github.event_name == 'pull_request'
-        id: fc
-        with:
-          issue-number: ${{ github.event.pull_request.number }}
-          comment-author: 'github-actions[bot]'
-          body-includes: Docker image tag(s) pushed
-      
-        # If PR, put image tags in the PR comments
-      - name: Create or update comment for image tags
-        uses: peter-evans/create-or-update-comment@v4
-        if: github.event_name == 'pull_request'
-        with:
-          comment-id: ${{ steps.fc.outputs.comment-id }}
-          issue-number: ${{ github.event.pull_request.number }}
-          body: |
-            Docker image tag(s) pushed:
-            ```text
-            ${{ steps.docker_meta.outputs.tags }}
-            ```
-
-            Labels added to images:
-            ```text
-            ${{ steps.docker_meta.outputs.labels }}
-            ```
-          edit-mode: replace
           # adding linux/arm64 is recommended for Apple Silicon, Raspberry Pi, AWS Graviton, etc.
           # linux/arm/v7 is for 32-bit ARM devices like Raspberry Pi 2/3
-          platforms: linux/amd64,linux/arm64,linux/arm/v7
+          platforms: linux/amd64,linux/arm64
