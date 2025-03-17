@@ -1,4 +1,4 @@
-FROM node:20-bookworm-slim
+FROM node:23-bookworm-slim
 # Create and set the working directory
 WORKDIR /usr/src/app
 # Copy package.json and package-lock.json to the working directory
