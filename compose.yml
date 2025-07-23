@@ -1,0 +1,14 @@
+services:
+  httpenv2:
+    #build: .
+    image: ghcr.io/jimdavis66/httpenv2:dev
+    container_name: httpenv2
+    ports:
+      - "3000:3000"
+    environment:
+      - PORT=3000
+      - NODE_ENV=development
+    # volumes:
+    #   - .:/usr/src/app
+    #   - /usr/src/app/node_modules
+    restart: unless-stopped
