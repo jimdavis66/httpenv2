@@ -1,8 +1,9 @@
 ---
-name: 01 Basic Docker Build
-# simplest workflow possible
+name: Build Docker Image
 
 on:
+  schedule:
+    - cron: "0 4 * * 0"
   push:
     branches:
       - main
