@@ -1,12 +1,15 @@
-FROM node:24-bookworm-slim
+FROM dhi.io/node:25-dev AS build
 
-# Create and set the working directory
 WORKDIR /usr/src/app
-# Copy package.json and package-lock.json to the working directory
 COPY package*.json ./
-# Install dependencies
-RUN npm install
-# Copy the rest of the application code to the working directory
+RUN npm install --omit=dev && mkdir -p node_modules
+
+FROM dhi.io/node:25 AS runtime
+
+WORKDIR /usr/src/app
+ENV NODE_ENV=production
+COPY --from=build /usr/src/app/node_modules ./node_modules
+COPY package*.json ./
 COPY app.js .
 EXPOSE 3000
 CMD ["node", "app.js"]

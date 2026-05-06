@@ -1,7 +1,7 @@
 services:
   httpenv2:
-    #build: .
-    image: ghcr.io/jimdavis66/httpenv2:dev
+    build:
+      context: .
     container_name: httpenv2
     ports:
       - "3000:3000"
